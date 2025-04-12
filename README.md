@@ -9,7 +9,7 @@ Built for the modern sovereign miner, optimized for freedom.
 
 ## 🛠 What Is This?
 
-A CLI-based Python tuner that runs multi-objective optimization on your ESPminer.
+A CLI-based tuner that runs multi-objective optimization on your ESPminer.
 It finds the best balance of:
 - 🧠 **Hashrate** (TH/s)
 - 🔌 **Efficiency** (J/TH)
@@ -46,15 +46,7 @@ To enhance your ESPminer optimization workflow, consider integrating the Optuna 
 
 Install dependencies:
 ```bash
-pip install -r requirements.txt
-```
-
-Required Python packages:
-```
-optuna
-requests
-pandas
-rich
+pip install .
 ```
 
 ---
@@ -98,7 +90,7 @@ Each trial logs:
    In a separate terminal, start the dashboard:
 
    ```bash
-   optuna-dashboard sqlite:///db.sqlite3
+   optuna-dashboard sqlite:///espminer-optim-db.sqlite3
    ```
 
    This will start a local server, typically accessible at `http://localhost:8080/`.

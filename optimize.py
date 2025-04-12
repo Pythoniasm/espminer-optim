@@ -1,20 +1,22 @@
-import optuna
-import requests
-import time
-import pandas as pd
-import os
 import json
+import os
+import time
+
 import numpy as np
+import optuna
+import pandas as pd
+import requests
 from rich.console import Console
-from rich.prompt import Prompt, IntPrompt, Confirm
-from rich.table import Table
 from rich.progress import (
+    BarColumn,
     Progress,
     SpinnerColumn,
-    TimeElapsedColumn,
-    BarColumn,
     TextColumn,
+    TimeElapsedColumn,
 )
+from rich.prompt import Confirm, IntPrompt, Prompt
+from rich.table import Table
+
 
 # Initialize rich console
 console = Console()
@@ -25,30 +27,18 @@ console.print("[bold green]Bitaxe Optimization Setup[/bold green]")
 device_ip = Prompt.ask("Enter Bitaxe device URI", default="192.168.1.4")
 study_name = Prompt.ask("Enter trial name", default="espmineroptim")
 n_trials = IntPrompt.ask("Enter number of trials", default=10, show_default=True)
-trial_length_s = (
-    IntPrompt.ask("Enter trial duration (min.)", default=1, show_default=True) * 60
-)
+trial_length_s = IntPrompt.ask("Enter trial duration (min.)", default=1, show_default=True) * 60
 
 # Frequency bounds
-min_frequency_MHz = IntPrompt.ask(
-    "Enter minimum frequency (MHz)", default=400, show_default=True
-)
-max_frequency_MHz = IntPrompt.ask(
-    "Enter maximum frequency (MHz)", default=625, show_default=True
-)
+min_frequency_MHz = IntPrompt.ask("Enter minimum frequency (MHz)", default=400, show_default=True)
+max_frequency_MHz = IntPrompt.ask("Enter maximum frequency (MHz)", default=625, show_default=True)
 
 # Voltage bounds
-min_coreVoltage_mV = IntPrompt.ask(
-    "Enter minimum coreVoltage (mV)", default=1000, show_default=True
-)
-max_coreVoltage_mV = IntPrompt.ask(
-    "Enter maximum coreVoltage (mV)", default=1250, show_default=True
-)
+min_coreVoltage_mV = IntPrompt.ask("Enter minimum coreVoltage (mV)", default=1000, show_default=True)
+max_coreVoltage_mV = IntPrompt.ask("Enter maximum coreVoltage (mV)", default=1250, show_default=True)
 
 limit_temp_degC = IntPrompt.ask("Enter temp limit (°C)", default=68, show_default=True)
-limit_vrTemp_degC = IntPrompt.ask(
-    "Enter voltage regulator temp limit coreVoltage (°C)", default=78, show_default=True
-)
+limit_vrTemp_degC = IntPrompt.ask("Enter voltage regulator temp limit coreVoltage (°C)", default=78, show_default=True)
 confirmed = Confirm.ask("Check your inputs above. Start optimizing?")
 if not confirmed:
     exit(0)
@@ -98,9 +88,7 @@ def run_trial(frequency_MHz, coreVoltage_mV, trial_number):
         headers = {"Content-Type": "application/json"}
         payload = {"frequency": int(frequency_MHz), "coreVoltage": int(coreVoltage_mV)}
 
-        response = requests.patch(
-            SETTINGS_URL, headers=headers, data=json.dumps(payload), timeout=10
-        )
+        response = requests.patch(SETTINGS_URL, headers=headers, data=json.dumps(payload), timeout=10)
         response.raise_for_status()
         time.sleep(1)
 
@@ -108,9 +96,7 @@ def run_trial(frequency_MHz, coreVoltage_mV, trial_number):
         restart_response = requests.post(RESET_URL, timeout=10)
         restart_response.raise_for_status()
 
-        console.print(
-            "[yellow]⏳ Waiting 30 seconds for system stabilization...[/yellow]"
-        )
+        console.print("[yellow]⏳ Waiting 30 seconds for system stabilization...[/yellow]")
         time.sleep(30)
 
         hashRates_THps = []
@@ -123,9 +109,7 @@ def run_trial(frequency_MHz, coreVoltage_mV, trial_number):
             TimeElapsedColumn(),
             transient=True,
         ) as progress:
-            task = progress.add_task(
-                "[green]Collecting system stats...", total=trial_length_s // 10
-            )
+            task = progress.add_task("[green]Collecting system stats...", total=trial_length_s // 10)
 
             for _ in range(trial_length_s // 10):
                 stats_response = requests.get(STATS_URL, timeout=10)
@@ -139,17 +123,11 @@ def run_trial(frequency_MHz, coreVoltage_mV, trial_number):
                 actual_coreVoltage_mV = stats.get("coreVoltage", 0)
 
                 try:
-                    np.testing.assert_allclose(
-                        actual_frequency_MHz, frequency_MHz, rtol=1e-3
-                    )
-                    np.testing.assert_allclose(
-                        actual_coreVoltage_mV, coreVoltage_mV, rtol=1e-3
-                    )
+                    np.testing.assert_allclose(actual_frequency_MHz, frequency_MHz, rtol=1e-3)
+                    np.testing.assert_allclose(actual_coreVoltage_mV, coreVoltage_mV, rtol=1e-3)
                 except AssertionError:
                     console.print_exception()
-                    console.print(
-                        "[bold red]Real parameter not set within tolerance of 1%[/bold red]"
-                    )
+                    console.print("[bold red]Real parameter not set within tolerance of 1%[/bold red]")
                     console.print()
                     return
 
@@ -159,9 +137,7 @@ def run_trial(frequency_MHz, coreVoltage_mV, trial_number):
                 )
 
                 if temp_degC > limit_temp_degC or vrTemp_degC > limit_vrTemp_degC:
-                    console.print(
-                        "[bold red]❌ Temperature too high! Aborting.[/bold red]"
-                    )
+                    console.print("[bold red]❌ Temperature too high! Aborting.[/bold red]")
                     return
 
                 hashRates_THps.append(hashRate_THps)
@@ -175,9 +151,7 @@ def run_trial(frequency_MHz, coreVoltage_mV, trial_number):
 
         avg_hashRate_THps = sum(hashRates_THps) / len(hashRates_THps)
         avg_power_W = sum(powers_W) / len(powers_W)
-        avg_efficiency_JpTH = (
-            avg_power_W / avg_hashRate_THps if avg_hashRate_THps != 0 else 0
-        )
+        avg_efficiency_JpTH = avg_power_W / avg_hashRate_THps if avg_hashRate_THps != 0 else 0
         # scoring = (
         #     hashRate_factor * avg_hashRate_THps
         #     - efficiency_factor * avg_efficiency_JpTH
@@ -220,12 +194,8 @@ def run_trial(frequency_MHz, coreVoltage_mV, trial_number):
 
 
 def run_study(trial):
-    frequency_MHz = trial.suggest_float(
-        "frequency", float(min_frequency_MHz), float(max_frequency_MHz)
-    )
-    coreVoltage_mV = trial.suggest_float(
-        "coreVoltage", float(min_coreVoltage_mV), float(max_coreVoltage_mV)
-    )
+    frequency_MHz = trial.suggest_float("frequency", float(min_frequency_MHz), float(max_frequency_MHz))
+    coreVoltage_mV = trial.suggest_float("coreVoltage", float(min_coreVoltage_mV), float(max_coreVoltage_mV))
     return run_trial(frequency_MHz, coreVoltage_mV, trial.number)
 
 
@@ -233,7 +203,7 @@ if __name__ == "__main__":
     console.print("[bold green]Starting Bitaxe Optimization...[/bold green]")
     study = optuna.create_study(
         directions=["maximize", "minimize"],
-        storage="sqlite:///db.sqlite3",  # Specify the storage URL here.
+        storage="sqlite:///espminer-optim-db.sqlite3",  # Specify the storage URL here.
         study_name=study_name,
         load_if_exists=True,
     )
