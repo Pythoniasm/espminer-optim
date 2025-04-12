@@ -138,6 +138,16 @@ def run_trial(frequency_MHz, coreVoltage_mV, trial_number):
 
                 if temp_degC > limit_temp_degC or vrTemp_degC > limit_vrTemp_degC:
                     console.print("[bold red]❌ Temperature too high! Aborting.[/bold red]")
+
+                    console.print("[cyan]→ Resetting device to cooler minimal fallback parameters...[/cyan]")
+                    headers = {"Content-Type": "application/json"}
+                    payload = {"frequency": int(min_frequency_MHz), "coreVoltage": int(min_coreVoltage_mV)}
+                    response = requests.patch(SETTINGS_URL, headers=headers, data=json.dumps(payload), timeout=10)
+                    response.raise_for_status()
+                    time.sleep(1)
+                    restart_response = requests.post(RESET_URL, timeout=10)
+                    restart_response.raise_for_status()
+
                     return
 
                 hashRates_THps.append(hashRate_THps)
