@@ -39,23 +39,34 @@ To enhance your ESPminer optimization workflow, consider integrating the Optuna 
 
 ---
 
-## ⚙️ Requirements
+## Install
 
+Dependencies:
 - Python 3
 - A ESPminer running firmware with the `/api/system` endpoints
 
-Install dependencies:
+Directly install from PyPI [`espminer-optim`](https://pypi.org/project/espminer-optim/) via pip:
 ```bash
-pip install .
+pip install espminer-optim
+```
+
+## ⚙️ Development
+
+Clone the repository and install it in editable mode
+```bash
+pip install -e .
 ```
 
 ---
 
 ## 🧪 Running the Optimizer
 
+Run the executable after install:
 ```bash
-python optimize.py
+espminer-optim
 ```
+
+or run directly via Python runtime `python optimize.py`.
 
 You’ll be prompted for:
 - ESPminer IP address
