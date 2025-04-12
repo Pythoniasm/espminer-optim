@@ -1,0 +1,14 @@
+# ESPminer Optimizer
+*.csv
+*.sqlite3
+
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
