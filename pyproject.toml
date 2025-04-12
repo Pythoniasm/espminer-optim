@@ -1,3 +1,6 @@
+[build-system]
+requires = ["setuptools>=78.1.0"]
+
 [project]
 name = "espminer-optim"
 version = "0.1.0"
@@ -12,6 +15,9 @@ dependencies = [
     "rich>=14.0.0",
     "ruff>=0.11.5",
 ]
+
+[project.scripts]
+espminer-optim = "optimize:main"
 
 [tool.ruff]
 line-length = 120

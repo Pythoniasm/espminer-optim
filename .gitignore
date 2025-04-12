@@ -2,13 +2,16 @@
 *.csv
 *.sqlite3
 
+# Tools
+.ruff_cache/
+
 # Python-generated files
 __pycache__/
-*.py[oc]
 build/
 dist/
 wheels/
-*.egg-info
+*.egg-info/
+*.py[oc]
 
 # Virtual environments
 .venv

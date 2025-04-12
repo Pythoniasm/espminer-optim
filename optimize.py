@@ -199,7 +199,7 @@ def run_study(trial):
     return run_trial(frequency_MHz, coreVoltage_mV, trial.number)
 
 
-if __name__ == "__main__":
+def entrypoint():
     console.print("[bold green]Starting Bitaxe Optimization...[/bold green]")
     study = optuna.create_study(
         directions=["maximize", "minimize"],
@@ -231,3 +231,7 @@ if __name__ == "__main__":
     final.add_row("objectives", f"{trial.values}")
 
     console.print(final)
+
+
+if __name__ == "__main__":
+    entrypoint()
