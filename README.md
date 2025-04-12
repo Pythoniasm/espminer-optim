@@ -97,11 +97,11 @@ Each trial logs:
 
 ### 📊 Features of Optuna Dashboard
 
-- **Interactive Visualization** Monitor optimization history, parameter importances, and trial details through dynamic graph.
+- **Interactive Visualization**: Monitor optimization history, parameter importances, and trial details through dynamic graph.
 
-- **Real-Time Updates** Observe the optimization progress as new trials are complete.
+- **Real-Time Updates**: Observe the optimization progress as new trials are complete.
 
-- **Trial Management** Filter, sort, and inspect individual trials to gain insights into the optimization proces.
+- **Trial Management**: Filter, sort, and inspect individual trials to gain insights into the optimization proces.
 
 For more information and advanced usage, refer to [Optuna Dashboard documentation](https://optuna-dashboard.readthedocs.io/).
 By incorporating the Optuna Dashboard into your workflow, you can gain deeper insights into your optimization process, leading to more efficient and effective tuning of your ESPminer device.
