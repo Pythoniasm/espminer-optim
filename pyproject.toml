@@ -3,7 +3,7 @@ requires = ["setuptools>=78.1.0"]
 
 [project]
 name = "espminer-optim"
-version = "0.0.2"
+version = "0.0.3"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"

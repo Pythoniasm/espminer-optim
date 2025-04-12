@@ -66,7 +66,7 @@ Run the executable after install:
 espminer-optim
 ```
 
-or run directly via Python runtime `python optimize.py`.
+or run directly via Python runtime `python optimize.py` if you have cloned the source.
 
 You’ll be prompted for:
 - ESPminer IP address
