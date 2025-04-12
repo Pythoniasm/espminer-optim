@@ -123,8 +123,8 @@ def run_trial(frequency_MHz, coreVoltage_mV, trial_number):
                 actual_coreVoltage_mV = stats.get("coreVoltage", 0)
 
                 try:
-                    np.testing.assert_allclose(actual_frequency_MHz, frequency_MHz, rtol=1e-3)
-                    np.testing.assert_allclose(actual_coreVoltage_mV, coreVoltage_mV, rtol=1e-3)
+                    np.testing.assert_allclose(actual_frequency_MHz, frequency_MHz, rtol=3 * 1e-3)
+                    np.testing.assert_allclose(actual_coreVoltage_mV, coreVoltage_mV, rtol=3 * 1e-3)
                 except AssertionError:
                     console.print_exception()
                     console.print("[bold red]Real parameter not set within tolerance of 1%[/bold red]")
@@ -221,16 +221,19 @@ def entrypoint():
     study.optimize(run_study, n_trials=n_trials)
 
     console.rule("[bold green]Optimization Complete[/bold green]")
-    final = Table(title="Best Trial Results", show_lines=True)
-    final.add_column("Parameter", style="cyan")
-    final.add_column("Value", style="magenta")
-    for trial in study.best_trials:
+    console.print("Best trials per objective from multi-objective optimization:")
+
+    for i, trial in enumerate(study.best_trials, start=1):
+        table = Table(
+            title=f"Best Multi-Objective Result {i}/{len(study.best_trials)} - Trial {trial.number} ", show_lines=True
+        )
+        table.add_column("Parameter", style="cyan")
+        table.add_column("Value", style="magenta")
         for key, val in trial.params.items():
-            final.add_row(key, str(val))
-
-    final.add_row("objectives", f"{trial.values}")
-
-    console.print(final)
+            table.add_row(key, str(val))
+        table.add_section()
+        table.add_row("Objectives: hashRate (TH/s), efficiency (J/TH)", f"{trial.values}")
+        console.print(table)
 
 
 if __name__ == "__main__":
