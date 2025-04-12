@@ -1,9 +1,9 @@
 # ⚡️ ESPminer Optimizer
 
-Tweak your ESPminer for max hashrate, minimum watts, and thermally clean operation—automagically.
+Tweak your ESPminer for max hashrate, minimum watts, and thermally clean operation - automagically.
 Built for the modern sovereign miner, optimized for freedom.
 
-> “Don’t trust. Verify. Solo-mine. Then autotune.” — Satoshi, probably
+> “Don’t trust. Verify. Solo-mine. Then autotune.”  -  Satoshi, probably
 
 ---
 
@@ -63,7 +63,7 @@ You’ll be prompted for:
 - Trial count & duration
 - Temperature limits
 
-Then the tuner gets to work—configuring, restarting, collecting stats, and evolving toward greatness. 🙌
+Then the tuner gets to work - configuring, restarting, collecting stats, and evolving toward greatness. 🙌
 
 Each trial logs:
 - Frequency (MHz)
