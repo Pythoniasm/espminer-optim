@@ -17,6 +17,9 @@ It finds the best balance of:
 
 All in real-time using [Optuna](https://optuna.org/) and your device’s REST API.
 
+> 🤝 Found new best parameters with your ESPminer? Leave some sats for development support:
+> [`bc1pgen5mzfdeq4hpwv6t7etjtch5j3dda46pm555vxhn839wq3aggdscrtxws`](bitcoin:bc1pgen5mzfdeq4hpwv6t7etjtch5j3dda46pm555vxhn839wq3aggdscrtxws)
+
 ---
 
 ## 🚀 Features
