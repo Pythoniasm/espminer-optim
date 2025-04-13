@@ -15,3 +15,6 @@ wheels/
 
 # Virtual environments
 .venv
+
+# File systems
+.DS_Store
