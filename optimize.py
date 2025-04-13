@@ -82,7 +82,7 @@ else:
 def run_trial(frequency_MHz, coreVoltage_mV, trial_number):
     try:
         console.rule(
-            f"[bold green]Trial {trial_number}: freq={frequency_MHz:.0f}MHz, Vcore={coreVoltage_mV:.0f}mV[/bold green]"
+            f"[bold green]Trial {trial_number}: freq={frequency_MHz:.0f} MHz, Vcore={coreVoltage_mV:.0f} mV[/bold green]"
         )
 
         headers = {"Content-Type": "application/json"}
@@ -228,7 +228,7 @@ def entrypoint():
     study.set_user_attr("limit_temp_degC", limit_temp_degC)
     study.set_user_attr("limit_vrTemp_degC", limit_vrTemp_degC)
 
-    study.optimize(run_study, n_trials=n_trials)
+    # study.optimize(run_study, n_trials=n_trials)
 
     console.rule("[bold green]Optimization Complete[/bold green]")
     console.print("Best trials per objective from multi-objective optimization:")
@@ -244,6 +244,51 @@ def entrypoint():
         table.add_section()
         table.add_row("Objectives: hashRate (TH/s), efficiency (J/TH)", f"{trial.values}")
         console.print(table)
+
+    try:
+        if study.best_trials:
+            console.rule("[bold green]Committing the Best Multi-Objective Result 1/2 Parameters to Device[/bold green]")
+            headers = {"Content-Type": "application/json"}
+
+            best_trial_frequency = study.best_trials[0].params.get("frequency", min_frequency_MHz)
+            best_trial_coreVoltage_mV = study.best_trials[0].params.get("coreVoltage", min_coreVoltage_mV)
+            payload = {"frequency": int(best_trial_frequency), "coreVoltage": int(best_trial_coreVoltage_mV)}
+
+            response = requests.patch(SETTINGS_URL, headers=headers, data=json.dumps(payload), timeout=10)
+            response.raise_for_status()
+            time.sleep(1)
+
+            console.print(
+                f"Setting the parameters from best multi-objective result 1/2: freq={best_trial_frequency:.0f} MHz, Vcore={best_trial_coreVoltage_mV:.0f} mV"
+            )
+
+            console.print("[cyan]→ Restarting device...[/cyan]")
+            restart_response = requests.post(RESET_URL, timeout=10)
+            restart_response.raise_for_status()
+
+            console.print("[yellow]⏳ Waiting 30 seconds for system restart...[/yellow]")
+            time.sleep(30)
+
+            stats_response = requests.get(STATS_URL, timeout=10)
+            stats = stats_response.json()
+
+            actual_frequency_MHz = stats.get("frequency", 0)
+            actual_coreVoltage_mV = stats.get("coreVoltage", 0)
+
+            try:
+                np.testing.assert_allclose(actual_frequency_MHz, best_trial_frequency, rtol=3 * 1e-3)
+                np.testing.assert_allclose(actual_coreVoltage_mV, best_trial_coreVoltage_mV, rtol=3 * 1e-3)
+            except AssertionError:
+                console.print_exception()
+                console.print("[bold red]Real parameter not set within tolerance of 1%[/bold red]")
+                console.print()
+                raise Exception("Real parameter not set within tolerance of 1%")
+
+            console.print("[bold green]Parameters from best multi-objective result 1/2 are now set.[/bold green]")
+
+    except Exception as e:
+        console.print(f"[bold red]Exception:[/bold red] {e}")
+        return
 
 
 if __name__ == "__main__":
