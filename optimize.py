@@ -228,7 +228,7 @@ def entrypoint():
     study.set_user_attr("limit_temp_degC", limit_temp_degC)
     study.set_user_attr("limit_vrTemp_degC", limit_vrTemp_degC)
 
-    # study.optimize(run_study, n_trials=n_trials)
+    study.optimize(run_study, n_trials=n_trials)
 
     console.rule("[bold green]Optimization Complete[/bold green]")
     console.print("Best trials per objective from multi-objective optimization:")
