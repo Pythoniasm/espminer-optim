@@ -31,6 +31,14 @@ All in real-time using [Optuna](https://optuna.org/) and your device’s REST AP
 - 📚 Saves study results to a local SQLite DB
 - 🌈 Uses `rich` for pretty CLI output
 
+<p align="center" >
+  <img src="docs/img/cli_0.png" width="80%"/>
+</p>
+
+<p align="center" >
+  <img src="docs/img/cli_1.png" width="50%"/>
+</p>
+
 ---
 
 ## ☠️ Warnings
@@ -119,6 +127,18 @@ Each trial logs:
 
 For more information and advanced usage, refer to [Optuna Dashboard documentation](https://optuna-dashboard.readthedocs.io/).
 By incorporating the Optuna Dashboard into your workflow, you can gain deeper insights into your optimization process, leading to more efficient and effective tuning of your ESPminer device.
+
+<p align="center" >
+  <img src="docs/img/dashboard_0.png" width="35%"/>
+</p>
+
+<p align="center" >
+  <img src="docs/img/dashboard_1.png" width="60%"/>
+</p>
+
+<p align="center" >
+  <img src="docs/img/dashboard_2.png" width="60%"/>
+</p>
 
 ---
 
