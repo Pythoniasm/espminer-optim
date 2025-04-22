@@ -13,11 +13,15 @@ dependencies = [
     "pandas>=2.2.3",
     "requests>=2.32.3",
     "rich>=14.0.0",
-    "ruff>=0.11.5",
 ]
-
 [project.scripts]
 espminer-optim = "optimize:entrypoint"
+
+[dependency-groups]
+dev = [
+    "pipdeptree>=2.26.1",
+    "ruff>=0.11.5",
+]
 
 [tool.ruff]
 line-length = 120
