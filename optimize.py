@@ -6,6 +6,7 @@ import numpy as np
 import optuna
 import pandas as pd
 import requests
+from optuna.trial import Trial
 from rich.console import Console
 from rich.progress import (
     BarColumn,
@@ -22,9 +23,9 @@ from rich.table import Table
 console = Console()
 
 # Prompt user for setup
-console.print("[bold green]Bitaxe Optimization Setup[/bold green]")
+console.print("[bold green]ESPminer Optimization Setup[/bold green]")
 
-device_ip = Prompt.ask("Enter Bitaxe device URI", default="192.168.1.4")
+device_ip = Prompt.ask("Enter ESPminer device URI", default="192.168.1.4")
 study_name = Prompt.ask("Enter trial name", default="espmineroptim")
 n_trials = IntPrompt.ask("Enter number of trials", default=10, show_default=True)
 trial_length_s = IntPrompt.ask("Enter trial duration (min.)", default=1, show_default=True) * 60
@@ -68,9 +69,21 @@ df_columns = [
     "trial_number",
     "frequency_MHz",
     "coreVoltage_mV",
+    "min_hashRate_THps",
+    "max_hashRate_THps",
     "avg_hashRate_THps",
+    "min_power_W",
+    "max_power_W",
     "avg_power_W",
+    "min_efficiency_JpTH",
+    "max_efficiency_JpTH",
     "avg_efficiency_JpTH",
+    "min_temp_degC",
+    "max_temp_degC",
+    "avg_temp_degC",
+    "min_vrTemp_degC",
+    "max_vrTemp_degC",
+    "avg_vrTemp_degC",
 ]
 
 if os.path.exists(csv_file):
@@ -79,7 +92,9 @@ else:
     results_df = pd.DataFrame(columns=df_columns)
 
 
-def run_trial(frequency_MHz, coreVoltage_mV, trial_number):
+def run_trial(trial: Trial, frequency_MHz: float, coreVoltage_mV: float):
+    trial_number = trial.number
+
     try:
         console.rule(
             f"[bold green]Trial {trial_number}: freq={frequency_MHz:.0f} MHz, Vcore={coreVoltage_mV:.0f} mV[/bold green]"
@@ -99,8 +114,10 @@ def run_trial(frequency_MHz, coreVoltage_mV, trial_number):
         console.print("[yellow]⏳ Waiting 30 seconds for system stabilization...[/yellow]")
         time.sleep(30)
 
-        hashRates_THps = []
-        powers_W = []
+        hashRates_THps = list()
+        powers_W = list()
+        temps_degC = list()
+        vrTemps_degC = list()
 
         with Progress(
             SpinnerColumn(),
@@ -114,10 +131,11 @@ def run_trial(frequency_MHz, coreVoltage_mV, trial_number):
             for _ in range(trial_length_s // 10):
                 stats_response = requests.get(STATS_URL, timeout=10)
                 stats = stats_response.json()
-                temp_degC = stats.get("temp", 0)
-                vrTemp_degC = stats.get("vrTemp", 0)
+
                 hashRate_THps = stats.get("hashRate", 0) / 1000.0
                 power_W = stats.get("power", 0)
+                temp_degC = stats.get("temp", 0)
+                vrTemp_degC = stats.get("vrTemp", 0)
 
                 actual_frequency_MHz = stats.get("frequency", 0)
                 actual_coreVoltage_mV = stats.get("coreVoltage", 0)
@@ -152,6 +170,9 @@ def run_trial(frequency_MHz, coreVoltage_mV, trial_number):
 
                 hashRates_THps.append(hashRate_THps)
                 powers_W.append(power_W)
+                temps_degC.append(temp_degC)
+                vrTemps_degC.append(vrTemp_degC)
+
                 progress.advance(task)
                 time.sleep(10)
 
@@ -159,9 +180,29 @@ def run_trial(frequency_MHz, coreVoltage_mV, trial_number):
             console.print("[bold red]No valid stats – aborting trial.[/bold red]")
             return
 
-        avg_hashRate_THps = sum(hashRates_THps) / len(hashRates_THps)
-        avg_power_W = sum(powers_W) / len(powers_W)
-        avg_efficiency_JpTH = avg_power_W / avg_hashRate_THps if avg_hashRate_THps != 0 else 0
+        hashRates_THps = np.asarray(hashRates_THps)
+        powers_W = np.asarray(powers_W)
+        temps_degC = np.asarray(temps_degC)
+        vrTemps_degC = np.asarray(vrTemps_degC)
+
+        efficiencies_JpTH = np.divide(powers_W, hashRates_THps)
+
+        min_hashRate_THps = hashRates_THps.min()
+        max_hashRate_THps = hashRates_THps.max()
+        avg_hashRate_THps = hashRates_THps.mean()
+        min_power_W = powers_W.min()
+        max_power_W = powers_W.max()
+        avg_power_W = powers_W.mean()
+        min_temp_degC = temps_degC.min()
+        max_temp_degC = temps_degC.max()
+        avg_temp_degC = temps_degC.mean()
+        min_vrTemp_degC = vrTemps_degC.min()
+        max_vrTemp_degC = vrTemps_degC.max()
+        avg_vrTemp_degC = vrTemps_degC.mean()
+        min_efficiency_JpTH = efficiencies_JpTH.min()
+        max_efficiency_JpTH = efficiencies_JpTH.max()
+        avg_efficiency_JpTH = efficiencies_JpTH.mean()
+
         # scoring = (
         #     hashRate_factor * avg_hashRate_THps
         #     - efficiency_factor * avg_efficiency_JpTH
@@ -181,20 +222,48 @@ def run_trial(frequency_MHz, coreVoltage_mV, trial_number):
             trial_number,
             frequency_MHz,
             coreVoltage_mV,
+            min_hashRate_THps,
+            max_hashRate_THps,
             avg_hashRate_THps,
+            min_power_W,
+            max_power_W,
             avg_power_W,
+            min_efficiency_JpTH,
+            max_efficiency_JpTH,
             avg_efficiency_JpTH,
+            min_temp_degC,
+            max_temp_degC,
+            avg_temp_degC,
+            min_vrTemp_degC,
+            max_vrTemp_degC,
+            avg_vrTemp_degC,
         ]
         results_df.to_csv(csv_file, index=False)
 
         summary = Table(title=f"Trial {trial_number} Summary", show_lines=True)
         summary.add_column("Metric", style="cyan")
         summary.add_column("Value", style="magenta")
-        summary.add_row("Avg Hashrate", f"{avg_hashRate_THps:.2f} TH/s")
-        summary.add_row("Avg Power", f"{avg_power_W:.2f} W")
-        summary.add_row("Efficiency", f"{avg_efficiency_JpTH:.2f} ")
+        summary.add_row("Avg. Hashrate", f"{avg_hashRate_THps:.2f} TH/s")
+        summary.add_row("Avg. Power", f"{avg_power_W:.2f} W")
+        summary.add_row("Avg. Efficiency", f"{avg_efficiency_JpTH:.2f} J/TH")
 
         console.print(summary)
+
+        trial.set_user_attr("min_hashRate_THps", min_hashRate_THps)
+        trial.set_user_attr("max_hashRate_THps", max_hashRate_THps)
+        trial.set_user_attr("avg_hashRate_THps", avg_hashRate_THps)
+        trial.set_user_attr("min_power_W", min_power_W)
+        trial.set_user_attr("max_power_W", max_power_W)
+        trial.set_user_attr("avg_power_W", avg_power_W)
+        trial.set_user_attr("min_efficiency_JpTH", min_efficiency_JpTH)
+        trial.set_user_attr("max_efficiency_JpTH", max_efficiency_JpTH)
+        trial.set_user_attr("avg_efficiency_JpTH", avg_efficiency_JpTH)
+        trial.set_user_attr("min_temp_degC", min_temp_degC)
+        trial.set_user_attr("max_temp_degC", max_temp_degC)
+        trial.set_user_attr("avg_temp_degC", avg_temp_degC)
+        trial.set_user_attr("min_vrTemp_degC", min_vrTemp_degC)
+        trial.set_user_attr("max_vrTemp_degC", max_vrTemp_degC)
+        trial.set_user_attr("avg_vrTemp_degC", avg_vrTemp_degC)
 
         return avg_hashRate_THps, avg_efficiency_JpTH
 
@@ -203,14 +272,27 @@ def run_trial(frequency_MHz, coreVoltage_mV, trial_number):
         return
 
 
-def run_study(trial):
+def run_study(trial: Trial):
     frequency_MHz = trial.suggest_float("frequency", float(min_frequency_MHz), float(max_frequency_MHz))
     coreVoltage_mV = trial.suggest_float("coreVoltage", float(min_coreVoltage_mV), float(max_coreVoltage_mV))
-    return run_trial(frequency_MHz, coreVoltage_mV, trial.number)
+    return run_trial(trial, frequency_MHz, coreVoltage_mV)
 
 
 def entrypoint():
-    console.print("[bold green]Starting Bitaxe Optimization...[/bold green]")
+    try:
+        console.print("[blue]Reading pre-optimization ESPminer parameters...[blue]")
+        stats_response = requests.get(STATS_URL, timeout=10)
+        stats = stats_response.json()
+
+        pre_optim_frequency_MHz = stats.get("frequency")
+        pre_optim_coreVoltage_mV = stats.get("coreVoltage")
+        console.rule(
+            f"[bold blue]Pre-optimization parameters: freq={pre_optim_frequency_MHz:.0f} MHz, Vcore={pre_optim_coreVoltage_mV:.0f} mV[/bold blue]"
+        )
+    except Exception as e:
+        console.print(f"[bold red]Exception:[/bold red] {e}")
+        return
+
     study = optuna.create_study(
         directions=["maximize", "minimize"],
         storage="sqlite:///espminer-optim-db.sqlite3",  # Specify the storage URL here.
@@ -221,6 +303,8 @@ def entrypoint():
     study.set_user_attr("device_ip", device_ip)
     study.set_user_attr("study_name", device_ip)
     study.set_user_attr("trial_length_s", trial_length_s)
+    study.set_user_attr("pre_optim_frequency_MHz", pre_optim_frequency_MHz)
+    study.set_user_attr("pre_optim_coreVoltage_mV", pre_optim_coreVoltage_mV)
     study.set_user_attr("min_frequency_MHz", min_frequency_MHz)
     study.set_user_attr("max_frequency_MHz", max_frequency_MHz)
     study.set_user_attr("min_coreVoltage_mV", min_coreVoltage_mV)
@@ -228,6 +312,7 @@ def entrypoint():
     study.set_user_attr("limit_temp_degC", limit_temp_degC)
     study.set_user_attr("limit_vrTemp_degC", limit_vrTemp_degC)
 
+    console.print("[bold green]Starting ESPminer Optimization...[/bold green]")
     study.optimize(run_study, n_trials=n_trials)
 
     console.rule("[bold green]Optimization Complete[/bold green]")
