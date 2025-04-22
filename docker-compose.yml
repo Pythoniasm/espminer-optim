@@ -1,0 +1,13 @@
+services:
+
+  dashboard:
+    image: espminer-optim:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: espminer-optim-dashboard
+    volumes:
+      - .:/app/
+    ports:
+      - 8080:8080
+    command: uv run optuna-dashboard sqlite:///espminer-optim-db.sqlite3
