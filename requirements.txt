@@ -1,0 +1,5 @@
+optuna>=4.2.1
+optuna-dashboard>=0.18.0
+pandas>=2.2.3
+requests>=2.32.3
+rich>=14.0.0
