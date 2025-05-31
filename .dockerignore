@@ -1,0 +1,13 @@
+# Project
+build/
+dist/
+
+*.sqlite3
+
+# Tools
+.ruff_cache/
+
+# Python
+.venv/
+__pycache__/
+*.egg-info/
