@@ -21,6 +21,7 @@ espminer-optim = "optimize:entrypoint"
 dev = [
     "pipdeptree>=2.26.1",
     "ruff>=0.11.5",
+    "ipykernel>=6.29.5",
 ]
 
 [tool.ruff]
