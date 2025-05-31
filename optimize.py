@@ -32,14 +32,16 @@ trial_length_s = IntPrompt.ask("Enter trial duration (min.)", default=1, show_de
 
 # Frequency bounds
 min_frequency_MHz = IntPrompt.ask("Enter minimum frequency (MHz)", default=400, show_default=True)
-max_frequency_MHz = IntPrompt.ask("Enter maximum frequency (MHz)", default=625, show_default=True)
+max_frequency_MHz = IntPrompt.ask("Enter maximum frequency (MHz)", default=550, show_default=True)
 
 # Voltage bounds
 min_coreVoltage_mV = IntPrompt.ask("Enter minimum coreVoltage (mV)", default=1000, show_default=True)
-max_coreVoltage_mV = IntPrompt.ask("Enter maximum coreVoltage (mV)", default=1250, show_default=True)
+max_coreVoltage_mV = IntPrompt.ask("Enter maximum coreVoltage (mV)", default=1100, show_default=True)
 
 limit_temp_degC = IntPrompt.ask("Enter temp limit (°C)", default=68, show_default=True)
-limit_vrTemp_degC = IntPrompt.ask("Enter voltage regulator temp limit coreVoltage (°C)", default=78, show_default=True)
+limit_vrTemp_degC = IntPrompt.ask("Enter voltage regulator temp limit coreVoltage (°C)", default=68, show_default=True)
+
+console.print("[bold red]Double check that the parameter ranges are safe and don't lead to overheat![/bold red]")
 confirmed = Confirm.ask("Check your inputs above. Start optimizing?")
 if not confirmed:
     exit(0)
@@ -92,6 +94,28 @@ else:
     results_df = pd.DataFrame(columns=df_columns)
 
 
+def get_device_stats(stats_url: str = STATS_URL, timeout: float = 15):
+    stats_response = requests.get(stats_url, timeout=timeout)
+    return stats_response.json()
+
+
+def set_device_parameters(
+    settings_url: str = SETTINGS_URL,
+    reset_url: str = RESET_URL,
+    frequency_MHz: float = min_frequency_MHz,
+    coreVoltage_mV: float = min_coreVoltage_mV,
+):
+    headers = {"Content-Type": "application/json"}
+    payload = {"frequency": int(frequency_MHz), "coreVoltage": int(coreVoltage_mV)}
+    response = requests.patch(settings_url, headers=headers, data=json.dumps(payload), timeout=10)
+    response.raise_for_status()
+    time.sleep(1)
+
+    console.print("[cyan]→ Restarting device...[/cyan]")
+    response = requests.post(reset_url, timeout=10)
+    response.raise_for_status()
+
+
 def run_trial(trial: Trial, frequency_MHz: float, coreVoltage_mV: float):
     trial_number = trial.number
 
@@ -100,16 +124,7 @@ def run_trial(trial: Trial, frequency_MHz: float, coreVoltage_mV: float):
             f"[bold green]Trial {trial_number}: freq={frequency_MHz:.0f} MHz, Vcore={coreVoltage_mV:.0f} mV[/bold green]"
         )
 
-        headers = {"Content-Type": "application/json"}
-        payload = {"frequency": int(frequency_MHz), "coreVoltage": int(coreVoltage_mV)}
-
-        response = requests.patch(SETTINGS_URL, headers=headers, data=json.dumps(payload), timeout=10)
-        response.raise_for_status()
-        time.sleep(1)
-
-        console.print("[cyan]→ Restarting device...[/cyan]")
-        restart_response = requests.post(RESET_URL, timeout=10)
-        restart_response.raise_for_status()
+        set_device_parameters(frequency_MHz=frequency_MHz, coreVoltage_mV=coreVoltage_mV)
 
         console.print("[yellow]⏳ Waiting 30 seconds for system stabilization...[/yellow]")
         time.sleep(30)
@@ -129,8 +144,7 @@ def run_trial(trial: Trial, frequency_MHz: float, coreVoltage_mV: float):
             task = progress.add_task("[green]Collecting system stats...", total=trial_length_s // 10)
 
             for _ in range(trial_length_s // 10):
-                stats_response = requests.get(STATS_URL, timeout=10)
-                stats = stats_response.json()
+                stats = get_device_stats()
 
                 hashRate_THps = stats.get("hashRate", 0) / 1000.0
                 power_W = stats.get("power", 0)
@@ -158,13 +172,8 @@ def run_trial(trial: Trial, frequency_MHz: float, coreVoltage_mV: float):
                     console.print("[bold red]❌ Temperature too high! Aborting.[/bold red]")
 
                     console.print("[cyan]→ Resetting device to cooler minimal fallback parameters...[/cyan]")
-                    headers = {"Content-Type": "application/json"}
-                    payload = {"frequency": int(min_frequency_MHz), "coreVoltage": int(min_coreVoltage_mV)}
-                    response = requests.patch(SETTINGS_URL, headers=headers, data=json.dumps(payload), timeout=10)
-                    response.raise_for_status()
-                    time.sleep(1)
-                    restart_response = requests.post(RESET_URL, timeout=10)
-                    restart_response.raise_for_status()
+
+                    set_device_parameters(frequency_MHz=min_frequency_MHz, coreVoltage_mV=min_coreVoltage_mV)
 
                     return
 
@@ -187,21 +196,21 @@ def run_trial(trial: Trial, frequency_MHz: float, coreVoltage_mV: float):
 
         efficiencies_JpTH = np.divide(powers_W, hashRates_THps)
 
-        min_hashRate_THps = hashRates_THps.min()
-        max_hashRate_THps = hashRates_THps.max()
-        avg_hashRate_THps = hashRates_THps.mean()
-        min_power_W = powers_W.min()
-        max_power_W = powers_W.max()
-        avg_power_W = powers_W.mean()
-        min_temp_degC = temps_degC.min()
-        max_temp_degC = temps_degC.max()
-        avg_temp_degC = temps_degC.mean()
-        min_vrTemp_degC = vrTemps_degC.min()
-        max_vrTemp_degC = vrTemps_degC.max()
-        avg_vrTemp_degC = vrTemps_degC.mean()
-        min_efficiency_JpTH = efficiencies_JpTH.min()
-        max_efficiency_JpTH = efficiencies_JpTH.max()
-        avg_efficiency_JpTH = efficiencies_JpTH.mean()
+        min_hashRate_THps = float(hashRates_THps.min())
+        max_hashRate_THps = float(hashRates_THps.max())
+        avg_hashRate_THps = float(hashRates_THps.mean())
+        min_power_W = float(powers_W.min())
+        max_power_W = float(powers_W.max())
+        avg_power_W = float(powers_W.mean())
+        min_temp_degC = float(temps_degC.min())
+        max_temp_degC = float(temps_degC.max())
+        avg_temp_degC = float(temps_degC.mean())
+        min_vrTemp_degC = float(vrTemps_degC.min())
+        max_vrTemp_degC = float(vrTemps_degC.max())
+        avg_vrTemp_degC = float(vrTemps_degC.mean())
+        min_efficiency_JpTH = float(efficiencies_JpTH.min())
+        max_efficiency_JpTH = float(efficiencies_JpTH.max())
+        avg_efficiency_JpTH = float(efficiencies_JpTH.mean())
 
         # scoring = (
         #     hashRate_factor * avg_hashRate_THps
@@ -281,8 +290,7 @@ def run_study(trial: Trial):
 def entrypoint():
     try:
         console.print("[blue]Reading pre-optimization ESPminer parameters...[blue]")
-        stats_response = requests.get(STATS_URL, timeout=10)
-        stats = stats_response.json()
+        stats = get_device_stats()
 
         pre_optim_frequency_MHz = stats.get("frequency")
         pre_optim_coreVoltage_mV = stats.get("coreVoltage")
@@ -291,77 +299,70 @@ def entrypoint():
         )
     except Exception as e:
         console.print(f"[bold red]Exception:[/bold red] {e}")
+        console.print("Have you configured the correct ESPminer device URI?")
         return
 
-    study = optuna.create_study(
-        directions=["maximize", "minimize"],
-        storage="sqlite:///espminer-optim-db.sqlite3",  # Specify the storage URL here.
-        study_name=study_name,
-        load_if_exists=True,
-    )
-
-    study.set_user_attr("device_ip", device_ip)
-    study.set_user_attr("study_name", device_ip)
-    study.set_user_attr("trial_length_s", trial_length_s)
-    study.set_user_attr("pre_optim_frequency_MHz", pre_optim_frequency_MHz)
-    study.set_user_attr("pre_optim_coreVoltage_mV", pre_optim_coreVoltage_mV)
-    study.set_user_attr("min_frequency_MHz", min_frequency_MHz)
-    study.set_user_attr("max_frequency_MHz", max_frequency_MHz)
-    study.set_user_attr("min_coreVoltage_mV", min_coreVoltage_mV)
-    study.set_user_attr("max_coreVoltage_mV", max_coreVoltage_mV)
-    study.set_user_attr("limit_temp_degC", limit_temp_degC)
-    study.set_user_attr("limit_vrTemp_degC", limit_vrTemp_degC)
-
-    console.print("[bold green]Starting ESPminer Optimization...[/bold green]")
-    study.optimize(run_study, n_trials=n_trials)
-
-    console.rule("[bold green]Optimization Complete[/bold green]")
-    console.print("Best trials per objective from multi-objective optimization:")
-
-    for i, trial in enumerate(study.best_trials, start=1):
-        table = Table(
-            title=f"Best Multi-Objective Result {i}/{len(study.best_trials)} - Trial {trial.number} ", show_lines=True
-        )
-        table.add_column("Parameter", style="cyan")
-        table.add_column("Value", style="magenta")
-        for key, val in trial.params.items():
-            table.add_row(key, str(val))
-        table.add_section()
-        table.add_row("Objectives: hashRate (TH/s), efficiency (J/TH)", f"{trial.values}")
-        console.print(table)
-
     try:
+        study = optuna.create_study(
+            directions=["maximize", "minimize"],
+            storage="sqlite:///espminer-optim-db.sqlite3",  # Specify the storage URL here.
+            study_name=study_name,
+            load_if_exists=True,
+        )
+
+        study.set_user_attr("device_ip", device_ip)
+        study.set_user_attr("study_name", device_ip)
+        study.set_user_attr("trial_length_s", trial_length_s)
+        study.set_user_attr("pre_optim_frequency_MHz", pre_optim_frequency_MHz)
+        study.set_user_attr("pre_optim_coreVoltage_mV", pre_optim_coreVoltage_mV)
+        study.set_user_attr("min_frequency_MHz", min_frequency_MHz)
+        study.set_user_attr("max_frequency_MHz", max_frequency_MHz)
+        study.set_user_attr("min_coreVoltage_mV", min_coreVoltage_mV)
+        study.set_user_attr("max_coreVoltage_mV", max_coreVoltage_mV)
+        study.set_user_attr("limit_temp_degC", limit_temp_degC)
+        study.set_user_attr("limit_vrTemp_degC", limit_vrTemp_degC)
+
+        console.print("[bold green]Starting ESPminer Optimization...[/bold green]")
+        study.optimize(run_study, n_trials=n_trials)
+
+        console.rule("[bold green]Optimization Complete[/bold green]")
+        console.print("Best trials per objective from multi-objective optimization:")
+
+        for i, trial in enumerate(study.best_trials, start=1):
+            table = Table(
+                title=f"Best Multi-Objective Result {i}/{len(study.best_trials)} - Trial {trial.number} ",
+                show_lines=True,
+            )
+            table.add_column("Parameter", style="cyan")
+            table.add_column("Value", style="magenta")
+            for key, val in trial.params.items():
+                table.add_row(key, str(val))
+            table.add_section()
+            table.add_row("Objectives: hashRate (TH/s), efficiency (J/TH)", f"{trial.values}")
+            console.print(table)
+
         if study.best_trials:
             console.rule("[bold green]Committing the Best Multi-Objective Result 1/2 Parameters to Device[/bold green]")
-            headers = {"Content-Type": "application/json"}
 
-            best_trial_frequency = study.best_trials[0].params.get("frequency", min_frequency_MHz)
+            best_trial_frequency_MHz = study.best_trials[0].params.get("frequency", min_frequency_MHz)
             best_trial_coreVoltage_mV = study.best_trials[0].params.get("coreVoltage", min_coreVoltage_mV)
-            payload = {"frequency": int(best_trial_frequency), "coreVoltage": int(best_trial_coreVoltage_mV)}
-
-            response = requests.patch(SETTINGS_URL, headers=headers, data=json.dumps(payload), timeout=10)
-            response.raise_for_status()
-            time.sleep(1)
 
             console.print(
-                f"Setting the parameters from best multi-objective result 1/2: freq={best_trial_frequency:.0f} MHz, Vcore={best_trial_coreVoltage_mV:.0f} mV"
+                f"Setting the parameters from best multi-objective result 1/2: freq={best_trial_frequency_MHz:.0f} MHz, Vcore={best_trial_coreVoltage_mV:.0f} mV"
             )
 
-            console.print("[cyan]→ Restarting device...[/cyan]")
-            restart_response = requests.post(RESET_URL, timeout=10)
-            restart_response.raise_for_status()
+            set_device_parameters(frequency_MHz=best_trial_frequency_MHz, coreVoltage_mV=best_trial_coreVoltage_mV)
 
             console.print("[yellow]⏳ Waiting 30 seconds for system restart...[/yellow]")
             time.sleep(30)
 
-            stats_response = requests.get(STATS_URL, timeout=10)
-            stats = stats_response.json()
+            stats = get_device_stats()
 
             actual_frequency_MHz = stats.get("frequency", 0)
             actual_coreVoltage_mV = stats.get("coreVoltage", 0)
 
             try:
-                np.testing.assert_allclose(actual_frequency_MHz, best_trial_frequency, rtol=3 * 1e-3)
+                np.testing.assert_allclose(actual_frequency_MHz, best_trial_frequency_MHz, rtol=3 * 1e-3)
                 np.testing.assert_allclose(actual_coreVoltage_mV, best_trial_coreVoltage_mV, rtol=3 * 1e-3)
             except AssertionError:
                 console.print_exception()
@@ -371,9 +372,36 @@ def entrypoint():
 
             console.print("[bold green]Parameters from best multi-objective result 1/2 are now set.[/bold green]")
 
-    except Exception as e:
-        console.print(f"[bold red]Exception:[/bold red] {e}")
-        return
+    except (KeyboardInterrupt, Exception) as e:
+        if isinstance(e, KeyboardInterrupt):
+            console.print("[bold yellow]Canceled by user keyboard interrupt.[/bold yellow]")
+        else:
+            console.print(f"[bold red]Exception:[/bold red] {e}")
+
+        console.print(
+            f"Reverting the parameters to pre-optimization configuration: freq={pre_optim_frequency_MHz:.0f} MHz, Vcore={pre_optim_coreVoltage_mV:.0f} mV"
+        )
+
+        set_device_parameters(frequency_MHz=pre_optim_frequency_MHz, coreVoltage_mV=pre_optim_coreVoltage_mV)
+
+        console.print("[yellow]⏳ Waiting 30 seconds for system restart...[/yellow]")
+        time.sleep(30)
+
+        stats = get_device_stats()
+
+        actual_frequency_MHz = stats.get("frequency", 0)
+        actual_coreVoltage_mV = stats.get("coreVoltage", 0)
+
+        try:
+            np.testing.assert_allclose(actual_frequency_MHz, pre_optim_frequency_MHz, rtol=3 * 1e-3)
+            np.testing.assert_allclose(actual_coreVoltage_mV, pre_optim_coreVoltage_mV, rtol=3 * 1e-3)
+        except AssertionError:
+            console.print_exception()
+            console.print("[bold red]Real parameter not set within tolerance of 1%[/bold red]")
+            console.print()
+            raise Exception("Real parameter not set within tolerance of 1%")
+
+        console.print("[bold green]Parameters reverted to pre-optimization configuration.[/bold green]")
 
 
 if __name__ == "__main__":
