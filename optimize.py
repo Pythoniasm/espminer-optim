@@ -41,6 +41,12 @@ max_coreVoltage_mV = IntPrompt.ask("Enter maximum coreVoltage (mV)", default=110
 limit_temp_degC = IntPrompt.ask("Enter temp limit (°C)", default=68, show_default=True)
 limit_vrTemp_degC = IntPrompt.ask("Enter voltage regulator temp limit coreVoltage (°C)", default=68, show_default=True)
 
+safe_coreVoltage_mV = 1040
+safe_frequency_MHz = 450
+
+console.print(
+    "[bold yellow]Warning: default values are defined for BitAxe Gamma 601. Check your safety precautions.[/bold yellow]"
+)
 console.print("[bold red]Double check that the parameter ranges are safe and don't lead to overheat![/bold red]")
 confirmed = Confirm.ask("Check your inputs above. Start optimizing?")
 if not confirmed:
@@ -173,7 +179,9 @@ def run_trial(trial: Trial, frequency_MHz: float, coreVoltage_mV: float):
 
                     console.print("[cyan]→ Resetting device to cooler minimal fallback parameters...[/cyan]")
 
-                    set_device_parameters(frequency_MHz=min_frequency_MHz, coreVoltage_mV=min_coreVoltage_mV)
+                    set_device_parameters(frequency_MHz=safe_frequency_MHz, coreVoltage_mV=safe_coreVoltage_mV)
+                    console.print("[cyan]→ Cooling down for 60 s...[/cyan]")
+                    time.sleep(60)
 
                     return
 

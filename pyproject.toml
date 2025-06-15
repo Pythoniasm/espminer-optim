@@ -4,7 +4,7 @@ requires = ["setuptools>=78.1.0"]
 [project]
 name = "espminer-optim"
 version = "0.0.8"
-description = "Add your description here"
+description = "A CLI-based tuner that runs multi-objective optimization on your ESPminer"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
